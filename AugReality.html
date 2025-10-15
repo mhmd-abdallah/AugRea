@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AR Animation Demo with Zoom</title>
+    <!-- Include A-Frame -->
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+    <!-- Include AR.js for A-Frame -->
+    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/1.7.6/aframe/build/aframe-ar.js"></script>
+    <style>
+      body, html { margin: 0; overflow: hidden; }
+      /* Ensure pointer events are captured */
+      a-scene { touch-action: none; }
+    </style>
+  </head>
+  <body>
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+      <!-- AR Marker (default "hiro" marker) -->
+      <a-marker preset="hiro" id="marker">
+        <!-- Content group that can be scaled for zoom -->
+        <a-entity id="content" scale="1 1 1">
+          <!-- Plane to show animation -->
+          <a-plane id="animationPlane"
+                   position="0 0 0"
+                   rotation="-90 0 0"
+                   width="1" height="1"
+                   material="src: #frame0; transparent: true;">
+          </a-plane>
+        </a-entity>
+      </a-marker>
+      <a-entity camera></a-entity>
+      
+      <a-assets id="assets">
+        <!-- Preload the first frame -->
+        <img id="frame0" src="frames/timestep_10.png">
+      </a-assets>
+    </a-scene>
+    
+    <script>
+      // --- Generate Frames Array in correct order ---
+      const frames = [];
+      for (let t = 10; t <= 960; t += 10) {
+        frames.push(`timestep_${t}.png`);
+      }
+      console.log("Frames array:", frames);
+      
+      let currentFrameIndex = 0;
+      const frameInterval = 200; // milliseconds per frame
+      let animationInterval;
+
+      // --- Function to update the frame ---
+      function updateFrame() {
+        currentFrameIndex = (currentFrameIndex + 1) % frames.length;
+        const imageUrl = `frames/${frames[currentFrameIndex]}`;
+        const plane = document.getElementById('animationPlane');
+        console.log("Updating frame to:", imageUrl);
+        
+        // Preload the new image before updating the plane's material
+        const tempImg = new Image();
+        tempImg.onload = function() {
+          plane.setAttribute('material', 'src', imageUrl);
+        };
+        tempImg.onerror = function() {
+          console.error("Error loading image:", imageUrl);
+        };
+        tempImg.src = imageUrl;
+      }
+      
+      // --- Function to start animation ---
+      function startAnimation() {
+        if (animationInterval) clearInterval(animationInterval);
+        animationInterval = setInterval(updateFrame, frameInterval);
+        console.log("Animation started.");
+      }
+      
+      // --- Function to stop animation ---
+      function stopAnimation() {
+        if (animationInterval) clearInterval(animationInterval);
+        console.log("Animation stopped.");
+      }
+      
+      // --- AR Marker event listeners ---
+      const marker = document.getElementById('marker');
+      marker.addEventListener('markerFound', () => {
+        console.log("Marker found. Starting animation.");
+        currentFrameIndex = 0;
+        startAnimation();
+      });
+      marker.addEventListener('markerLost', () => {
+        console.log("Marker lost. Stopping animation.");
+        stopAnimation();
+      });
+      
+      // --- Fallback: Start animation after 3 seconds regardless ---
+      setTimeout(() => {
+        console.log("Fallback: Starting animation after 3 seconds.");
+        startAnimation();
+      }, 3000);
+      
+      // --- Zoom functionality ---
+      // Attach the event listener to the a-scene so it captures wheel events
+      const sceneEl = document.querySelector('a-scene');
+      const contentEntity = document.getElementById('content');
+      let currentScale = 1; // initial scale
+
+      sceneEl.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const zoomFactor = 0.05;
+        if (event.deltaY < 0) {
+          // Zoom in
+          currentScale += zoomFactor;
+        } else {
+          // Zoom out (limit minimum scale to 0.2)
+          currentScale = Math.max(0.2, currentScale - zoomFactor);
+        }
+        contentEntity.setAttribute('scale', `${currentScale} ${currentScale} ${currentScale}`);
+        console.log("Current scale:", currentScale);
+      });
+      
+      // --- Overlay Text: "Representative Sample of the Dataset" ---
+      const textEl = document.createElement('a-text');
+      textEl.setAttribute('value', 'Representative Sample of the Dataset');
+      textEl.setAttribute('position', '-0.45 0.45 0.01');
+      textEl.setAttribute('rotation', '-90 0 0');
+      textEl.setAttribute('align', 'left');
+      textEl.setAttribute('color', '#ffffff');
+      textEl.setAttribute('width', '1');
+      // Fade in/out animation for the text
+      textEl.setAttribute('animation', 'property: material.opacity; from: 0; to: 1; dur: 2000; dir: alternate; loop: true');
+      contentEntity.appendChild(textEl);
+    </script>
+  </body>
+</html>
