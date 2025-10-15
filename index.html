@@ -11,34 +11,37 @@
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.js"></script>
 
   <style>
-    html, body { margin:0; overflow:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell; }
-    .hint{ position:fixed; left:50%; top:14px; transform:translateX(-50%);
-      background:rgba(0,0,0,.7); color:#fff; padding:8px 14px; border-radius:16px; z-index:9999; font-size:14px }
-    .hidden{ display:none }
+    html,body{margin:0;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    .hint{position:fixed;left:50%;top:14px;transform:translateX(-50%);
+      background:rgba(0,0,0,.7);color:#fff;padding:8px 14px;border-radius:16px;z-index:9999;font-size:14px}
+    .status{position:fixed;left:12px;bottom:12px;background:rgba(0,0,0,.6);color:#fff;
+      padding:6px 10px;border-radius:10px;z-index:9999;font-size:12px}
+    .hidden{display:none}
   </style>
 </head>
 <body>
   <div id="hint" class="hint hidden">📱 Point at the printed HIRO marker</div>
+  <div id="status" class="status">Loading image…</div>
 
   <a-scene
-    vr-mode-ui="enabled:false"
     embedded
+    vr-mode-ui="enabled:false"
     loading-screen="enabled:false"
     renderer="logarithmicDepthBuffer:true; antialias:true; alpha:true"
-    arjs="sourceType: webcam; detectionMode: mono; debugUIEnabled:false;"
+    arjs="sourceType: webcam; detectionMode: mono; facingMode: environment; debugUIEnabled:false;"
   >
-    <a-assets>
-      <!-- We set the src in JS so spaces/parentheses work via encodeURI -->
+    <a-assets timeout="15000">
+      <!-- We set src via JS so spaces/parentheses are properly encoded -->
       <img id="menu" crossorigin="anonymous">
     </a-assets>
 
-    <!-- Built-in HIRO marker -->
     <a-marker preset="hiro" smooth="true" smoothCount="10" smoothTolerance="0.01" smoothThreshold="5">
-      <!-- White backing for contrast (optional) -->
-      <a-plane position="0 0 -0.05" rotation="-90 0 0" width="2.2" height="1.3" color="#ffffff" opacity="0.95" material="shader: flat"></a-plane>
+      <!-- Optional white backing for contrast -->
+      <a-plane position="0 0 -0.05" rotation="-90 0 0" width="2.2" height="1.3"
+               color="#ffffff" opacity="0.95" material="shader: flat"></a-plane>
 
-      <!-- Your image that pops up -->
-      <a-image src="#menu" rotation="-90 0 0" position="0 0 0" width="2" height="1"
+      <!-- Your image -->
+      <a-image id="menuImage" src="#menu" rotation="-90 0 0" position="0 0 0" width="2" height="1"
         animation__fadeIn="property: opacity; from: 0; to: 1; dur: 700; easing: easeInOutQuad; startEvents: markerFound"
         animation__float="property: position; to: 0 0.1 0; dur: 1800; dir: alternate; loop: true; easing: easeInOutSine">
       </a-image>
@@ -48,10 +51,30 @@
   </a-scene>
 
   <script>
-    // Use your exact filename (with spaces/parentheses); encodeURI makes the URL safe
-    const fileName = "Strawberry (50 x 100 cm) (1).png"; // change to .jpg if you use JPG
-    const encodedPath = "./assets/" + encodeURI(fileName);
-    document.getElementById('menu').setAttribute('src', encodedPath);
+    // ---- SET THIS to your exact filename in the REPO ROOT (same folder as index.html)
+    const FILE_NAME = "Strawberry (50 x 100 cm).jpg"; // <- change to .png if yours is PNG
+    // ------------------------------------
+
+    const statusEl = document.getElementById('status');
+    function setStatus(t){ statusEl.textContent = t; }
+
+    // Load the image from the root, handling spaces/parentheses
+    const encodedPath = "./" + encodeURI(FILE_NAME);
+    const menuEl = document.getElementById('menu');
+
+    // Preload to confirm it exists and show helpful status
+    const test = new Image();
+    test.onload = () => {
+      menuEl.setAttribute('src', encodedPath);
+      setStatus("Image loaded ✓");
+      setTimeout(()=>statusEl.classList.add('hidden'), 1500);
+      console.log("Loaded:", encodedPath, test.naturalWidth+"x"+test.naturalHeight);
+    };
+    test.onerror = () => {
+      setStatus("❌ Image not found: " + FILE_NAME);
+      console.error("Image not found at", encodedPath);
+    };
+    test.src = encodedPath + "?v=" + Date.now(); // cache-bust
 
     // Show a hint after camera starts; hide when marker is found
     const hint = document.getElementById('hint');
@@ -60,7 +83,6 @@
       const marker = document.querySelector('a-marker');
       marker.addEventListener('markerFound', () => hint.classList.add('hidden'));
       marker.addEventListener('markerLost',  () => hint.classList.remove('hidden'));
-      console.log('Loaded image:', encodedPath);
     });
   </script>
 </body>
